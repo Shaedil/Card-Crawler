@@ -3,8 +3,32 @@ import random
 from cmu_112_graphics import *
 
 
+# https://stackoverflow.com/questions/8924173/how-do-i-print-bold-text-in-python
+# https://ss64.com/nt/syntax-ansi.html
+class Color(object):
+    # common foreground colors
+    RED =       '\033[91m'
+    GREEN =     '\033[92m'
+    YELLOW =    '\033[93m'
+    BLUE =      '\033[94m'
+    PURPLE =    '\033[95m'
+    CYAN =      '\033[96m'
+    DARKCYAN =  '\033[36m'
+    # common background colors
+    BG_RED =    '\033[101m'
+    BG_GREEN =  '\033[102m'
+    BG_YELLOW = '\033[103m'
+    BG_BLUE =   '\033[104m'
+    BG_PURPLE = '\033[105m'
+    BG_CYAN =   '\033[106m'
+    # default
+    BOLD =      '\033[1m'
+    UNDERLINE = '\033[4m'
+    END =       '\033[0m'
+
+
 class Card(object):
-    def __init__(self, width, height, suit, number):
+    def __init__(self, suit, number, width=175, height=200):
         # width is a numeric value
         self.width = width
         # height is a numeric value
@@ -18,8 +42,8 @@ class Card(object):
 class MapCard(Card):
     def __init__(self):
         # these cards are visible at the top of screen
-        super().__init__(75, 100, ['hearts', 'spades', 'diamonds', 'clubs'],
-                         [[i] for i in range(1, 14)])
+        super().__init__(['hearts', 'spades', 'diamonds', 'clubs'],
+                         [[i] for i in range(1, 14)], 75, 100)
 
     def drawMapCard(self, app, canvas, col, row):
         canvas.create_rectangle(app.marginHorizontal + col * app.mapCardWidth,
@@ -32,8 +56,21 @@ class MapCard(Card):
 class PlayerCard(Card):
     def __init__(self):
         # these cards are visible at the bottom of screen
-        super().__init__(175, 200, ['sword', 'coin', 'shield', 'heal'],
-                         [[j] for j in range(1, 14)])
+        super().__init__(['sword', 'coin', 'shield', 'heal'],
+                         [j for j in range(1, 14)])
+
+    def getRandomCard(self):
+        # return a random card from the list of cards
+        cardNum = random.choice(self.number)
+        cardSuit = random.choice(self.suit)
+        return [cardSuit, cardNum]
+
+
+class EnemyCard(Card):
+    def __init__(self):
+        # these cards are visible at the bottom of screen
+        super().__init__(['sword', 'coin', 'shield', 'heal'],
+                         [j for j in range(1, 10)])
 
     def getRandomCard(self):
         # return a random card from the list of cards
@@ -158,7 +195,74 @@ class Player(object):
         # if move not illegal, move player
         self.x += dx
         self.y += dy
-    
+
+    def attack(self):
+        found = 0
+        damage = 0
+        for card in self.cards:
+            if 'sword' in card[0]:
+                found += 1
+                damage = card[1]
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a sword card. You can't attack.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return damage
+        
+    def heal(self):
+        found = 0
+        health = 0
+        for card in self.cards:
+            if 'heal' in card[0]:
+                found += 1
+                health = card[1]
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a heal card. You can't heal.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return health
+
+    def shield(self):
+        found = 0
+        shield = 0
+        for card in self.cards:
+            if 'shield' in card[0]:
+                found += 1
+                shield = card[1]
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a shield card. You can't shield.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return shield
+
+    def coin(self):
+        found = 0
+        cards = 0
+        for card in self.cards:
+            if 'coin' in card[0]:
+                found += 1
+                cards = (card[1] // 5) + 1
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a coin card. You can't use it.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return cards
+
+    def useCard(self, card):
+        self.cards.pop(self.cards.index(card))
+
     def drawPlayerCards(self, canvas):
         # draw the player's cards centered at bottom of screen
         leftMargin = (self.app.width - len(self.cards) *
@@ -187,23 +291,194 @@ class Player(object):
             else: return
             canvas.create_text(leftMargin + (i + 0.5) * self.app.playerCardWidth,
                                self.app.height - 2*(self.app.playerCardHeight/3),
-                               anchor='n', text=str(self.cards[i][0]),
+                               anchor='n', text=f'{str(self.cards[i][0])} {self.cards[i][1]}',
                                font=('Helvetica 15 bold'))
 
+
 class Enemy(object):
-    def __init__(self, health, cards):
-        self.health = health
+    def __init__(self, app, selfCard, cards):
+        self.app = app
         self.cards = cards
+        self.selfCard = selfCard
+        self.maxHealth = selfCard[1]
+        self.health = self.maxHealth
 
     def attack(self):
-        pass
+        found = 0
+        damage = 0
+        for card in self.cards:
+            if 'sword' in card[0]:
+                found += 1
+                damage = card[1]
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a sword card. You can't attack.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return damage
 
     def shield(self):
-        pass
+        found = 0
+        shield = 0
+        for card in self.cards:
+            if 'shield' in card[0]:
+                found += 1
+                shield = card[1]
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a shield card. You can't shield.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return shield
 
     def heal(self):
-        if 'heal' in self.cards:
-            pass
+        found = 0
+        health = 0
+        for card in self.cards:
+            if 'heal' in card[0]:
+                found += 1
+                health = card[1]
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a heal card. You can't heal.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return health
+
+    def coin(self):
+        found = 0
+        cards = 0
+        for card in self.cards:
+            if 'coin' in card[0]:
+                found += 1
+                cards = (card[1] // 5) + 1
+                self.useCard(card)
+                break
+        if not found:
+            print("You don't have a coin card. You can't use it.")
+            return 0
+        else:
+            self.app.isPlayerTurn = not self.app.isPlayerTurn
+            return cards
+
+    def useCard(self, card):
+        self.cards.pop(self.cards.index(card))
+
+
+class Battle(object):
+    def __init__(self, app, player, enemy):
+        self.player = player
+        self.enemy = enemy
+        self.app = app
+        self.enemyCard = EnemyCard()
+        self.playerCard = PlayerCard()
+
+    def draw(self, canvas):
+        # clear screen of map
+        canvas.create_rectangle(self.app.marginHorizontal, self.app.marginVertical,
+                                self.app.marginHorizontal + 5 * self.app.mapCardWidth,
+                                self.app.marginVertical + 5 * self.app.mapCardHeight,
+                                fill='white')
+        # draw enemy below
+        canvas.create_oval(self.app.marginHorizontal + 2 * self.app.mapCardWidth,
+                           self.app.marginVertical + 3.25 * self.app.mapCardHeight,
+                           self.app.marginHorizontal + 3 * self.app.mapCardWidth,
+                           self.app.marginVertical + 4 * self.app.mapCardHeight,
+                           fill='red')
+        canvas.create_text(self.app.marginHorizontal + 2.5 * self.app.mapCardWidth,
+                           self.app.marginVertical + 4 * self.app.mapCardHeight,
+                           anchor='n', text=f'Enemy Health: {self.enemy.health}',
+                           font='Helvetica 14 bold')
+        # draw player below
+        canvas.create_oval(self.app.marginHorizontal + 2 * self.app.mapCardWidth,
+                           self.app.marginVertical + 1 * self.app.mapCardHeight,
+                           self.app.marginHorizontal + 3 * self.app.mapCardWidth,
+                           self.app.marginVertical + 1.75 * self.app.mapCardHeight,
+                           fill='blue')
+        canvas.create_text(self.app.marginHorizontal + 2.5 * self.app.mapCardWidth,
+                           self.app.marginVertical + 1.75 * self.app.mapCardHeight,
+                           anchor='n', text=f'Your Health: {self.player.health}',
+                           font='Helvetica 14 bold')
+    
+    def enemyTurn(self):
+        if self.enemy.health > 0 and self.player.health > 0:
+            # TODO: replace below line of code with probabilistic choice based
+            # on player's health
+            # if enemy still has cards left:
+            if len(self.enemy.cards) > 0:
+                card = random.choice(self.enemy.cards)
+            else:
+                card = self.enemyCard.getRandomCard()
+                self.enemy.cards.append([card[0], card[1]])
+                self.enemy.health -= 1
+            if card[0] == 'sword':
+                attack = self.enemy.attack()
+                self.player.health -= attack
+                print(f'Enemy attacked for {attack} points')
+            elif card[0] == 'heal':
+                heal = self.enemy.heal()
+                self.enemy.health += heal
+                if self.enemy.health > self.enemy.maxHealth:
+                    self.enemy.health = self.enemy.maxHealth
+                print(f'Enemy healed for {heal} points')
+            elif card[0] == 'shield':
+                shield = self.enemy.shield()
+                self.enemy.health += shield
+                print(f'Enemy shielded for {shield} points')
+            elif card[0] == 'coin':
+                for i in range(self.enemy.coin()):
+                    suit = self.enemyCard.getRandomCard()[0]
+                    num = self.enemyCard.getRandomCard()[1]
+                    self.enemy.cards.append([suit, num])
+            else:
+                print(f"Enemy card '{card[0]}' not recognized.")
+        elif self.enemy.health <= 0:
+            print("Enemy is dead.")
+            self.app.inBattle = False
+            self.app.isPlayerTurn = True
+        elif self.player.health <= 0:
+            print("Player is dead.")
+            self.app.inBattle = False
+            self.app.isPlayerTurn = True
+            self.app.isGameOver = True
+        return
+
+    def playerTurn(self, event):
+        if self.player.health > 0 and self.enemy.health > 0:
+            if len(self.player.cards) <= 0 or event.key == '.':
+                card = self.playerCard.getRandomCard()
+                self.player.cards.append([card[0], card[1]])
+                self.player.health -= 1
+            if event.key == 'a':
+                self.enemy.health -= self.player.attack()
+                # return True
+            elif event.key == 'h':
+                self.player.health += self.player.heal()
+                if self.player.health > self.player.maxHealth:
+                    self.player.health = self.player.maxHealth
+                # return True
+            elif event.key == 's':
+                self.player.health += self.player.shield()
+                # return True
+            elif event.key == 'c':
+                for i in range(self.player.coin()):
+                    suit = self.playerCard.getRandomCard()[0]
+                    num = self.playerCard.getRandomCard()[1]
+                    self.player.cards.append([suit, num])
+                # return True
+            # else:
+                # return False
+        elif self.enemy.health <= 0:
+            print("Enemy is dead.")
+            self.app.inBattle = False
+            self.app.isPlayerTurn = True
+        return
 
 
 def appStarted(app):
@@ -225,44 +500,64 @@ def appStarted(app):
         userCards.append([suit, num])
     app.player = Player(app, 0, 0, userCards)
     app.starting = True
-    app.battle = False
-
+    app.battle = None
+    app.enemy = None
+    app.inBattle = False
+    app.isPlayerTurn = True
+    app.isGameOver = False
 
 def mousePressed(app, event):
     # if the player clicks on a card, reveal the card
-    if app.starting:
-        pass
-    else:
-        pass
-
+    pass
 
 def keyPressed(app, event):
     if event.key == 'q':
         app.quit()
+    if event.key == 'r':
+        appStarted(app)
+    if app.isGameOver:
+        print("Game Over")
+        # TODO: show end screen here
     if event.key == 'e':
-        app.battle = True
-        # debug: start a battle to show off the battle mechanics
-        # battle mechanics not implemented yet
-
-
-def timerFired(app):
-    if app.battle:
-        # if a battle is happening, run a function that inits a new battle
+        app.inBattle = not app.inBattle
         userCards = []
-        card = PlayerCard()
-        for i in range(random.randint(3,6)):
+        card = EnemyCard()
+        for i in range(5):
             suit = card.getRandomCard()[0]
             num = card.getRandomCard()[1]
             userCards.append([suit, num])
-        # debug: health for now is going to be random
+        # TODO: health for now is going to be random
         health = random.randint(1, 10)
-        enemy = Enemy(health, userCards)
-    else:
-        pass
+        enemyCard = ['hearts', health]
+        app.enemy = Enemy(app, enemyCard, userCards)
+        app.battle = Battle(app, app.player, app.enemy)
+        # TODO: start a battle to show off the battle mechanics
+        # battle mechanics not implemented yet
+    if app.inBattle and event.key in ['a','h','c','s', '.']:
+        app.battle.playerTurn(event)
+        app.isPlayerTurn = False
 
+
+def timerFired(app):
+    if app.isGameOver == False:
+        if app.player.health <= 0:
+            print("Player is dead.")
+            app.inBattle = False
+            app.isPlayerTurn = True
+            app.isGameOver = True
+        if app.inBattle and not app.isPlayerTurn:
+            app.battle.enemyTurn()
+            app.isPlayerTurn = True
+    else:
+        print('play again?')
+        app.quit()
+    
 
 def redrawAll(app, canvas):
-    app.map.draw(canvas)
+    if app.inBattle:
+        app.battle.draw(canvas)
+    else:
+        app.map.draw(canvas)
     app.player.drawPlayerCards(canvas)
 
 
